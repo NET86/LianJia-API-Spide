@@ -3,4 +3,5 @@
 
 核心代码参考此项目：https://github.com/CaoZ/Fast-LianJia-Crawler
 
+代码水平业余，见笑了。
 
