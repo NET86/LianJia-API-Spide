@@ -22,6 +22,9 @@ import threading
 # 'district_id': '510104', 行政区ID
 # 'district_name': '锦江'，行政区名称
 #'condition'：获取api的参数
+# subway_line 地铁线
+# city_abbr 城市简称
+
 
 
 lian_jia = {
@@ -99,17 +102,7 @@ def get_city_info(city_id):
     else:
         logging.error(f'# 抱歉, 链家网暂未收录该城市~')
         sys.exit(1)
-    '''
-    city_id 城市id
-    city_name 城市名称
-    subway_line 地铁线
-    district  行政区
-    city_abbr 城市简称
-    以及
-    bizcircle_id 商圈id
-    bizcircle_name 商圈名
 
-    '''
     return city_info
 
 
