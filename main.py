@@ -26,7 +26,6 @@ import threading
 # city_abbr 城市简称
 
 
-
 lian_jia = {
     'ua': 'HomeLink7.7.6; Android 7.0',
     'app_id': '20161001_android',
@@ -138,13 +137,13 @@ def get_rented(city_id, condition):
         params = {
                 'limit_offset': offset,  # 请求数
                 'city_id': city_id,
-                'limit_count': 100,  # 单次请求数量
+                'limit_count': 20,  # 单次请求数量
                 'condition': condition} # 筛选条件
         data = get_data(url, params)
         #print('         获取成交房源进度：{:.2f}%'.format(offset / total_count * 100))
         for d in data['list']:
             rented.append(d)
-        offset += 100
+        offset += 20
     #print('             总记录数:',total_count,len(rented))
     return rented
 
@@ -155,7 +154,7 @@ def get_rented_count(city_id, condition):
     params = {
         'limit_offset': offset,  # 请求数
         'city_id': city_id,
-        'limit_count': 100,  # 单次请求数量
+        'limit_count': 20,  # 单次请求数量
         'condition': condition,  # 筛选条件
 
     }
@@ -189,7 +188,7 @@ class Crawl_thread(threading.Thread):
             else:
                 bizcircle = self.queue.get()
                 total_count=get_rented_count(bizcircle['city_id'],bizcircle['condition'])
-                print('     采集线程ID：',self.thread_id,"  {}>{}>{}成交数{}".format
+                print('     采集线程ID：',self.thread_id,"  {}>{}>{}成交数 {}".format
                 (bizcircle['city_name'],bizcircle['district_name'],bizcircle['bizcircle_name'],total_count))
                 #根据返回的总数，分割成不同的ID和参数，放入变量
                 if total_count<=2000 and total_count!=0 :
@@ -248,19 +247,22 @@ class Parser_thread(threading.Thread):
         '''
         self.rented=get_rented(item['city_id'],item['condition'])
         for r in self.rented:
-            r.update(item)
-            r.update({
+            r_copy=r.copy()
+            r_copy.update(item)
+            r_copy.update({
                 '更新时间': datetime.datetime.now()})
-            self.db.update_one({'house_code': r['house_code']},
-                           {'$set': r},
+            self.db.update_one({'house_code': r_copy['house_code']},
+                           {'$set': r_copy},
                            upsert=True)
-        print('         解析线程ID：', self.thread_id, "  {}>{}>{}>{}写入完毕".format
+
+        print('         解析线程ID：', self.thread_id, "  {}>{}>{}>{} 写入完毕".format
             (item['city_name'], item['district_name'], item['bizcircle_name'],item['condition']))
             # 根据返回的总数，分割成不同的ID和参数，放入变量
 
 
 def main():
     cityid = 510100  # 设置城市id
+    cityid=430100
     bizcircle_queue = Queue()  # 存放商圈数据到queue
     cityinfo = get_city_info(cityid)
     print('正在获取 {}【{}】行政区域及商圈信息'.format(cityid, cityinfo['city_name']))
@@ -278,7 +280,7 @@ def main():
             biz_ad['condition'] = biz['bizcircle_quanpin']+'/'
             bizcircle_queue.put(biz_ad)
             print('    商圈名称：{}'.format(biz['bizcircle_name']))
-    print('\n'+'    商圈抓取完毕，链家数量{}'.format(bizcircle_queue.qsize())+'\n')
+    print('\n'+'    商圈抓取完毕，数量为 {}'.format(bizcircle_queue.qsize())+'\n')
 
     conn = MongoClient('127.0.0.1', 27017)
     db = conn.链家网  # 连接mydb数据库，没有则自动创建
@@ -286,7 +288,7 @@ def main():
 
     # 初始化采集线程
     crawl_threads = []
-    for thread_id in range(3):
+    for thread_id in range(5):
         #传入线程ID，
         thread = Crawl_thread(thread_id,bizcircle_queue) # 启动爬虫线程
         thread.start() # 启动线程
@@ -294,7 +296,7 @@ def main():
 
     # 初始化解析线程
     parse_thread = []
-    for thread_id in range(10):  #
+    for thread_id in range(25):  #
         thread = Parser_thread(thread_id, data_queue,db2)
         thread.start()  # 启动线程
         parse_thread.append(thread)
@@ -316,7 +318,11 @@ def main():
     for t in parse_thread:
         t.join() # 等待所有线程执行到此处再继续往下执行
 
-
+    print('退出主线程')
 
 if __name__ == '__main__':
+    d1=datetime.datetime.now()
     main()
+    d2=datetime.datetime.now()
+    print('总用时：',d2-d1)
+
