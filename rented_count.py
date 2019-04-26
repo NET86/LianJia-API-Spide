@@ -6,7 +6,6 @@ import threading
 import time
 from datetime import datetime
 from queue import Queue
-
 import requests
 from pymongo import MongoClient
 
@@ -136,13 +135,13 @@ def get_rented(city_id, condition):
         params = {
             'limit_offset': offset,  # 请求数
             'city_id': city_id,
-            'limit_count': 20,  # 单次请求数量
+            'limit_count': 100,  # 单次请求数量
             'condition': condition}  # 筛选条件
         data = get_data(url, params)
         # print('         获取成交房源进度：{:.2f}%'.format(offset / total_count * 100))
         for d in data['list']:
             rented.append(d)
-        offset += 20
+        offset += 100
     # print('             总记录数:',total_count,len(rented))
     return rented
 
@@ -180,8 +179,8 @@ def do_rented_2000(city_id, condition):
     rented_info = []
     price_split = []  # 将价格拆分为可使用的分段
     # 把0，6000带入，返回成交数量信息{'rented_count': 2902, 'bpep': {0: 250, 250: 500}},500至99999为最上限
-    rented_info.append(get_rented_2000(city_id, condition, 0, 6000))
-    rented_info.append(get_rented_2000(city_id, condition, 6000, 99999))
+    rented_info.append(get_rented_2000(city_id, condition, 0, 4096))
+    rented_info.append(get_rented_2000(city_id, condition, 4096, 99999))
 
     for rented in rented_info:
         if rented['rented_count'] > 2000:  # 如果数量大于2000，则进行拆分
@@ -226,7 +225,7 @@ class Crawl_thread(threading.Thread):
             else:
                 bizcircle = self.queue.get()
                 total_count = get_rented_count(bizcircle['city_id'], bizcircle['condition'])
-                print('     采集线程ID：', self.thread_id, "  {}>{}>{}成交数 {}".format
+                print('     采集线程ID：', self.thread_id, "  {}>{}>{} {}条记录".format
                 (bizcircle['city_name'], bizcircle['district_name'], bizcircle['bizcircle_name'], total_count))
                 # 根据返回的总数，分割成不同的ID和参数，放入变量
                 if total_count <= 2000 and total_count != 0:
@@ -236,11 +235,10 @@ class Crawl_thread(threading.Thread):
                     bizcircle_tmp = bizcircle.copy()  # 复制一个对象出来，用COPY，不能用=
                     for c in cj:
                         bizcircle_tmp['condition'] = bizcircle['condition'] + 'brp{}erp{}'.format(list(c.keys())[0],
-                                                                                                list(c.values())[0])
+                                                                                                  list(c.values())[0])
                         data_queue.put(bizcircle_tmp)
-                        #print(bizcircle_tmp)
+                        # print(bizcircle_tmp)
                         # print('解析完成')
-
 
 
 # 多线程处理，传入商圈信息，直接进行最后抓取
@@ -265,7 +263,7 @@ class Parser_thread(threading.Thread):
                 self.parse_data(item)
                 self.queue.task_done()  # 每当发出一次get操作，就会提示是否堵塞
             except Exception as e:
-                print('错误1')
+                pass
         print('退出解析线程：', self.thread_id)
 
     def parse_data(self, item):
@@ -284,9 +282,9 @@ class Parser_thread(threading.Thread):
                                {'$set': r_copy},
                                upsert=True)
 
-        print('         解析线程ID：', self.thread_id, "  {}>{}>{}>{} 写入完毕。队列剩余链接数：{}".format
-        (item['city_name'], item['district_name'], item['bizcircle_name'], item['condition'], self.queue.qsize()))
-        # 根据返回的总数，分割成不同的ID和参数，放入变量
+        print('         解析线程ID：', self.thread_id,
+              "写入：{}>{}>{}>{} {}条记录  队列余量：{}".format(item['city_name'], item['district_name'], item['bizcircle_name'],
+                                                     item['condition'], len(self.rented),self.queue.qsize()))
 
 
 def main():

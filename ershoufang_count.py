@@ -184,8 +184,8 @@ def do_chengjiao_2000(city_id, condition):
     chengjiao_info = []
     price_split = []  # 将价格拆分为可使用的分段
     # 把0，500万带入，返回成交数量信息{'chengjiao_count': 2902, 'bpep': {0: 250, 250: 500}},500至99999为最上限
-    chengjiao_info.append(get_chengjiao_2000(city_id, condition, 0, 500))
-    chengjiao_info.append(get_chengjiao_2000(city_id, condition, 500, 99999))
+    chengjiao_info.append(get_chengjiao_2000(city_id, condition, 0, 512))
+    chengjiao_info.append(get_chengjiao_2000(city_id, condition, 512, 99999))
 
     for chengjiao in chengjiao_info:
         if chengjiao['chengjiao_count'] > 2000:  # 如果数量大于2000，则进行拆分
@@ -230,8 +230,9 @@ class Crawl_thread(threading.Thread):
             else:
                 bizcircle = self.queue.get()
                 total_count = get_chengjiao_count(bizcircle['city_id'], bizcircle['condition'])
-                print('     采集线程ID：', self.thread_id, "  {}>{}>{}成交数 {}".format
+                print('     采集线程ID：', self.thread_id, "  {}>{}>{} {}条记录".format
                 (bizcircle['city_name'], bizcircle['district_name'], bizcircle['bizcircle_name'], total_count))
+
                 # 根据返回的总数，分割成不同的ID和参数，放入变量
                 if total_count <= 2000 and total_count != 0:
                     data_queue.put(bizcircle)
@@ -285,11 +286,9 @@ class Parser_thread(threading.Thread):
             self.db.update_one({'house_code': r_copy['house_code']},
                                {'$set': r_copy},
                                upsert=True)
-
-        print('         解析线程ID：', self.thread_id, "  {}>{}>{}>{} 写入完毕。队列剩余链接数：{}".format
-        (item['city_name'], item['district_name'], item['bizcircle_name'], item['condition'], self.queue.qsize()))
-        # 根据返回的总数，分割成不同的ID和参数，放入变量
-
+        print('         解析线程ID：', self.thread_id,
+              "写入：{}>{}>{}>{} {}条记录  队列余量：{}".format(item['city_name'], item['district_name'], item['bizcircle_name'],
+                                                     item['condition'], len(self.chengjiao), self.queue.qsize()))
 
 def main():
     cityid = 510100  # 设置城市id
