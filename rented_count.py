@@ -125,16 +125,15 @@ def get_allcity():
     return allcity
 
 
-# 获取二手房成交数据(城市id,)
-def get_chengjiao(city_id, condition):
-    url = "https://app.api.lianjia.com/house/chengjiao/searchv2"
-    chengjiao = []
+# 获取租房成交数据(城市id,)
+def get_rented(city_id, condition):
+    url = "https://app.api.lianjia.com/house/rented/search"
+    rented = []
     offset = 0
-    total_count = get_chengjiao_count(city_id, condition)  # 该商圈的总记录数
+    total_count = get_rented_count(city_id, condition)  # 该商圈的总记录数
     # 总数小于2000，且总数不为0
     while offset < total_count:
         params = {
-            'channel': 'sold',
             'limit_offset': offset,  # 请求数
             'city_id': city_id,
             'limit_count': 20,  # 单次请求数量
@@ -142,61 +141,58 @@ def get_chengjiao(city_id, condition):
         data = get_data(url, params)
         # print('         获取成交房源进度：{:.2f}%'.format(offset / total_count * 100))
         for d in data['list']:
-            chengjiao.append(d)
+            rented.append(d)
         offset += 20
-    # print('             总记录数:',total_count,len(chengjiao))
-    return chengjiao
+    # print('             总记录数:',total_count,len(rented))
+    return rented
 
 
-# 获取二手房成交总数
-def get_chengjiao_count(city_id, condition):
-    url = "https://app.api.lianjia.com/house/chengjiao/searchv2"
+# 获取租房成交总数
+def get_rented_count(city_id, condition):
+    url = "https://app.api.lianjia.com/house/rented/search"
     offset = 0
     params = {
-        'channel': 'sold',
         'limit_offset': offset,  # 请求数
         'city_id': city_id,
         'limit_count': 20,  # 单次请求数量
-        'condition': condition}  # 筛选条件
-    try:
-        data = get_data(url, params)
-        total_count = data['total_count']  # 总记录数
-    except:
-        total_count = 0
-        print('数量获取失败，返回0')
+        'condition': condition,  # 筛选条件
+
+    }
+    data = get_data(url, params)
+    total_count = data['total_count']  # 总记录数
     return total_count
 
 
 # 传入城市ID，参数，价格区间，返回该区间的成交数，以及价格拆分为二
-# {'chengjiao_count': 2835, 'bpep': {0: 125, 125: 250}}
-def get_chengjiao_2000(cityid, condition, bp, ep):
-    condition2 = condition + 'bp{}ep{}'.format(bp, ep)
-    chengjiao_count2 = get_chengjiao_count(cityid, condition2)
-    if chengjiao_count2 <= 2000 and chengjiao_count2 > 0:
-        return {'chengjiao_count': chengjiao_count2, 'bpep': {bp: ep}}
-    elif chengjiao_count2 > 2000:
-        return {'chengjiao_count': chengjiao_count2, 'bpep': {bp: int(ep / 2), int(ep / 2): ep}}
-    elif chengjiao_count2 == 0:
-        return {'chengjiao_count': chengjiao_count2}
+# {'rented_count': 2835, 'bpep': {0: 125, 125: 250}}
+def get_rented_2000(cityid, condition, bp, ep):
+    condition2 = condition + 'brp{}erp{}'.format(bp, ep)
+    rented_count2 = get_rented_count(cityid, condition2)
+    if rented_count2 <= 2000 and rented_count2 > 0:
+        return {'rented_count': rented_count2, 'bpep': {bp: ep}}
+    elif rented_count2 > 2000:
+        return {'rented_count': rented_count2, 'bpep': {bp: int(ep / 2), int(ep / 2): ep}}
+    elif rented_count2 == 0:
+        return {'rented_count': rented_count2}
 
 
-def do_chengjiao_2000(city_id, condition):
-    chengjiao_info = []
+def do_rented_2000(city_id, condition):
+    rented_info = []
     price_split = []  # 将价格拆分为可使用的分段
-    # 把0，500万带入，返回成交数量信息{'chengjiao_count': 2902, 'bpep': {0: 250, 250: 500}},500至99999为最上限
-    chengjiao_info.append(get_chengjiao_2000(city_id, condition, 0, 500))
-    chengjiao_info.append(get_chengjiao_2000(city_id, condition, 500, 99999))
+    # 把0，6000带入，返回成交数量信息{'rented_count': 2902, 'bpep': {0: 250, 250: 500}},500至99999为最上限
+    rented_info.append(get_rented_2000(city_id, condition, 0, 6000))
+    rented_info.append(get_rented_2000(city_id, condition, 6000, 99999))
 
-    for chengjiao in chengjiao_info:
-        if chengjiao['chengjiao_count'] > 2000:  # 如果数量大于2000，则进行拆分
+    for rented in rented_info:
+        if rented['rented_count'] > 2000:  # 如果数量大于2000，则进行拆分
             # 遍历超过2000的区间
-            for cj in chengjiao['bpep']:
-                # print('遍历:',cj,chengjiao['bpep'][cj])
-                # 将超过2000的结果，放入chengjiao_info
-                chengjiao_info.append(get_chengjiao_2000(city_id, condition, cj, chengjiao['bpep'][cj]))
-        elif chengjiao['chengjiao_count'] <= 2000 and chengjiao['chengjiao_count'] != 0:
-            # print('该价位区间没有超过2000:',chengjiao['bpep'])
-            price_split.append(chengjiao['bpep'])
+            for cj in rented['bpep']:
+                # print('遍历:',cj,rented['bpep'][cj])
+                # 将超过2000的结果，放入rented_info
+                rented_info.append(get_rented_2000(city_id, condition, cj, rented['bpep'][cj]))
+        elif rented['rented_count'] <= 2000 and rented['rented_count'] != 0:
+            # print('该价位区间没有超过2000:',rented['bpep'])
+            price_split.append(rented['bpep'])
         else:
             pass  # 区间为0的情况
 
@@ -229,20 +225,22 @@ class Crawl_thread(threading.Thread):
                 break
             else:
                 bizcircle = self.queue.get()
-                total_count = get_chengjiao_count(bizcircle['city_id'], bizcircle['condition'])
+                total_count = get_rented_count(bizcircle['city_id'], bizcircle['condition'])
                 print('     采集线程ID：', self.thread_id, "  {}>{}>{}成交数 {}".format
                 (bizcircle['city_name'], bizcircle['district_name'], bizcircle['bizcircle_name'], total_count))
                 # 根据返回的总数，分割成不同的ID和参数，放入变量
                 if total_count <= 2000 and total_count != 0:
                     data_queue.put(bizcircle)
                 elif total_count > 2000:
-                    cj = do_chengjiao_2000(bizcircle['city_id'], bizcircle['condition'])
+                    cj = do_rented_2000(bizcircle['city_id'], bizcircle['condition'])
                     bizcircle_tmp = bizcircle.copy()  # 复制一个对象出来，用COPY，不能用=
                     for c in cj:
-                        bizcircle_tmp['condition'] = bizcircle['condition'] + 'bp{}ep{}'.format(list(c.keys())[0],
+                        bizcircle_tmp['condition'] = bizcircle['condition'] + 'brp{}erp{}'.format(list(c.keys())[0],
                                                                                                 list(c.values())[0])
                         data_queue.put(bizcircle_tmp)
-                # print('解析完成')
+                        #print(bizcircle_tmp)
+                        # print('解析完成')
+
 
 
 # 多线程处理，传入商圈信息，直接进行最后抓取
@@ -267,7 +265,7 @@ class Parser_thread(threading.Thread):
                 self.parse_data(item)
                 self.queue.task_done()  # 每当发出一次get操作，就会提示是否堵塞
             except Exception as e:
-                pass
+                print('错误1')
         print('退出解析线程：', self.thread_id)
 
     def parse_data(self, item):
@@ -276,8 +274,8 @@ class Parser_thread(threading.Thread):
         :param item:
         :return:
         '''
-        self.chengjiao = get_chengjiao(item['city_id'], item['condition'])
-        for r in self.chengjiao:
+        self.rented = get_rented(item['city_id'], item['condition'])
+        for r in self.rented:
             r_copy = r.copy()
             r_copy.update(item)
             r_copy.update({
@@ -314,7 +312,7 @@ def main():
 
     conn = MongoClient('127.0.0.1', 27017)
     db = conn.链家网  # 连接mydb数据库，没有则自动创建
-    db2 = db[cityinfo['city_name'] + '二手房成交信息(多线程/API)']
+    db2 = db[cityinfo['city_name'] + '租房成交信息(多线程/API)']
 
     # 初始化采集线程
     crawl_threads = []
@@ -326,7 +324,7 @@ def main():
 
     # 初始化解析线程
     parse_thread = []
-    for thread_id in range(30):
+    for thread_id in range(30):  #
         thread = Parser_thread(thread_id, data_queue, db2)
         thread.start()  # 启动线程
         parse_thread.append(thread)
